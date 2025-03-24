@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 format:
   html:
     self-contained: true
-    echo: true
+echo: true
 editor: visual
 ---
 #Question1
