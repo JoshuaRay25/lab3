@@ -15,6 +15,7 @@ library(flextable)
 data = read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 my.date <- as.Date("2022-02-01")  
 my.state <- "Colorado"
+load(".RData")
 ```
 
 # Question 2
@@ -129,14 +130,11 @@ library(ggplot2)
 library(zoo)
 library(readr)
 
-# Load the dataset
 covid_all_states <- read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 
-# Check the column names and first few rows to confirm correct data
 colnames(covid_all_states)
 head(covid_all_states)
 
-# Example population data (replace with actual population data for more states)
 state_pop <- data.frame(
   state = c("New York", "Colorado", "Alabama", "Ohio"),
   population = c(19453561, 5773714, 5024279, 11689100)  # Example populations
@@ -178,7 +176,6 @@ covid_state_data <- state_data %>%
 covid_state_data <- covid_state_data %>%
   mutate(rolling_avg_per_capita = zoo::rollmean(cases_per_capita, 7, fill = NA, align = "right"))
 
-# Optionally, you can print the first few rows to check the final dataset
 head(covid_state_data)
 ```
 
@@ -187,32 +184,25 @@ Scaling by population allowed the data to be more accurately depicted in a per c
 # Question7
 
 ```{r}
-# Example: Load counties dataset if available as a CSV file
 counties <- read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 
-# Convert fips in both datasets to character type before the join
 covid_all_states$fips <- as.character(covid_all_states$fips)
 counties$fips <- as.character(counties$fips)
 
-# Remove duplicate fips rows in both datasets
 covid_all_states <- covid_all_states %>%
   distinct(fips, .keep_all = TRUE)
 
 counties <- counties %>%
   distinct(fips, .keep_all = TRUE)
 
-# Perform the join after removing duplicates
 covid_data <- covid_all_states %>%
   left_join(counties, by = "fips")
 
-# Check the result
 head(covid_data)
 
-# Perform the left join
 covid_data <- covid_all_states %>%
   left_join(counties, by = "fips")
 
-# Check the result
 head(covid_data)
 ```
 
@@ -232,12 +222,6 @@ counties <- read.csv('https://raw.githubusercontent.com/nytimes/covid-19-data/ma
 covid_data <- read.csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 county_centroids <- read.csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 
-county_centroids <- counties %>%
-  left_join(county_centroids_joined, by = "fips")  # Assuming centroids has LAT and LON
-# Select LAT and LON columns from the correct dataframe
-county_centroids %>%
-  select(fips, LAT, LON)
-
 covid_data_filtered <- covid_data %>%
   filter(date >= "2020-01-01" & date <= "2021-01-01")
 
@@ -251,47 +235,43 @@ covid_data_aggregated <- covid_data_filtered %>%
 
 exists("covid_data_filtered")
 
-# Select only the necessary columns from covid_data_aggregated and counties
 covid_data_aggregated <- covid_data_aggregated %>% select(fips, date, total_cases, total_deaths)
-counties <- counties %>% select(fips, LAT, LON)
-
 setDT(covid_data_aggregated)
 setDT(counties)
 
-# Then, perform the merge
+covid_data_aggregated <- covid_data_aggregated %>%
+  distinct(fips, .keep_all = TRUE)
+
+counties <- counties %>%
+  distinct(fips, .keep_all = TRUE)
 merged_data <- merge(covid_data_aggregated, counties, by = "fips", all.x = TRUE)
 
-covid_data_with_centroids <- merge(covid_data_aggregated, counties, by = "fips", all.x = TRUE)
+county_centroids <- merge(covid_data_aggregated, counties, by = "fips", all.x = TRUE)
 
-# Filter the covid data for the desired date range
+county_centroids <- counties %>%
+  left_join(county_centroids, by = "fips")
+
+counties <- counties %>%
+  left_join(county_centroids, by = "fips")  
+
 covid_data_filtered <- covid_data %>%
   filter(date >= "2020-01-01" & date <= "2021-01-01")
 
-# Convert the filtered data to data.table
 setDT(covid_data_filtered)
 
-# Filter counties based on 'fips' codes present in filtered covid data
 counties_filtered <- counties %>%
   filter(fips %in% unique(covid_data_filtered$fips))
 
-# Ensure the 'date' column is in Date format
 covid_data$date <- as.Date(covid_data$date, format = "%Y-%m-%d")
 
-# Convert 'fips' column in both data frames to character type for proper join
 covid_data$fips <- as.character(covid_data$fips)
 counties$fips <- as.character(counties$fips)
-
-# Merge COVID-19 data with county centroids using 'fips' code
-# Assuming you want to join covid_data with county_centroids_joined
-county_centroids <- covid_data %>%
-  left_join(county_centroids%>% select(fips, LAT, LON), by = "fips")
 
 setDT(covid_data)
 setDT(counties)
 
-county_centroids <- covid_data[counties, on = "fips"]
+covid_data_with_centroids <- covid_data[counties, on = "fips", nomatch = 0]
 
-# Calculate the weighted mean center for daily deaths
 covid_weighted_center_deaths <- county_centroids %>%
   group_by(date) %>%
   summarise(
@@ -300,8 +280,11 @@ covid_weighted_center_deaths <- county_centroids %>%
     weighted_longitude_deaths = sum(LON * deaths, na.rm = TRUE) / total_deaths
   )
 
-# Calculate the weighted mean center for daily cases
-covid_weighted_center_cases <- county_centroids %>%
+
+covid_data_with_centroids <- covid_data %>%
+  left_join(county_centroids %>% select(fips, LAT, LON), by = "fips")
+
+covid_weighted_center_cases <- covid_data_with_centroids %>%
   group_by(date) %>%
   summarise(
     total_cases = sum(cases, na.rm = TRUE),
@@ -309,22 +292,18 @@ covid_weighted_center_cases <- county_centroids %>%
     weighted_longitude_cases = sum(LON * cases, na.rm = TRUE) / total_cases
   )
 
-# Plot for Cases
 plot_cases <- ggplot(covid_weighted_center_cases, aes(x = weighted_longitude_cases, y = weighted_latitude_cases)) +
   geom_point(color = "red", size = 2, alpha = 0.7) +
   theme_minimal() +
   labs(title = "Weighted Mean Center of COVID-19 Cases", x = "Longitude", y = "Latitude")
 
-# Plot for Deaths
 plot_deaths <- ggplot(covid_weighted_center_deaths, aes(x = weighted_longitude_deaths, y = weighted_latitude_deaths)) +
   geom_point(color = "navy", size = 2, alpha = 0.7) +
   theme_minimal() +
   labs(title = "Weighted Mean Center of COVID-19 Deaths", x = "Longitude", y = "Latitude")
 
-# Combine the plots using patchwork
 combined_plot <- plot_cases + plot_deaths
 
-# Display the combined plot
 combined_plot
 ```
 
