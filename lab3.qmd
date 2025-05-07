@@ -6,7 +6,7 @@ format:
   html:
     self-contained: true
 ---
-
+ 
 # Question 1
 
 ```{r}
@@ -28,7 +28,7 @@ library(patchwork)
 library(rnaturalearth)
 library(rnaturalearthdata)
 ```
-
+#Open data is very important because it allows scientists to access data and see historical trends.  It also allows us to view a more full picture to see the impacts of emergencies like covid and climate change.  When this data is hidden is makes people less likely to trust the institutions and the science itself.
 # Question 2
 
 ```{r}
